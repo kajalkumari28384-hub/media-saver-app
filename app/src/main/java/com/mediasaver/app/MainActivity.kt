@@ -15,9 +15,14 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.MINUTES)
+        .readTimeout(5, TimeUnit.MINUTES)
+        .writeTimeout(5, TimeUnit.MINUTES)
+        .build()
     private val backendUrl = "https://media-saver-app-cu8d.onrender.com"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,11 +60,11 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = "Please paste a link"
                 return@setOnClickListener
             }
-            statusText.text = "Downloading... (this may take a while)"
+            statusText.text = "Downloading... (server is processing, please wait, can take 1-2 min)"
 
             val json = JSONObject()
             json.put("url", url)
-            json.put("quality", "best")
+            json.put("quality", "720p")
             val body = json.toString().toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
                 .url("$backendUrl/download")
