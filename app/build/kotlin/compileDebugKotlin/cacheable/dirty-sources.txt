@@ -1,2 +1,0 @@
-/workspaces/media-saver-app/app/src/main/java/com/mediasaver/app/MainActivity.kt
-/workspaces/media-saver-app/app/src/main/java/com/mediasaver/app/HistoryActivity.kt

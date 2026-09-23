@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 import yt_dlp
 import uuid
@@ -35,17 +35,6 @@ def health():
 def detect(req: LinkRequest):
     return {"platform": detect_platform(req.url)}
 
-@app.post("/formats")
-def get_formats(req: LinkRequest):
-    ydl_opts = {"quiet": True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(req.url, download=False)
-        formats = []
-        for f in info.get("formats", []):
-            if f.get("height"):
-                formats.append(f"{f['height']}p")
-        return {"platform": detect_platform(req.url), "qualities": sorted(set(formats), reverse=True)}
-
 @app.post("/download")
 def download(req: DownloadRequest):
     platform = detect_platform(req.url)
@@ -58,11 +47,14 @@ def download(req: DownloadRequest):
         fmt = "best"
 
     ydl_opts = {"outtmpl": out_path, "format": fmt, "quiet": True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(req.url, download=True)
-        filename = ydl.prepare_filename(info)
-    basename = os.path.basename(filename)
-    return {"platform": platform, "filename": basename, "status": "done"}
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(req.url, download=True)
+            filename = ydl.prepare_filename(info)
+        basename = os.path.basename(filename)
+        return {"platform": platform, "filename": basename, "status": "done"}
+    except Exception as e:
+        return JSONResponse(status_code=200, content={"platform": platform, "status": "error", "error": str(e)})
 
 @app.get("/file/{filename}")
 def get_file(filename: str):
