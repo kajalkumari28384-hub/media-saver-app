@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="Media Saver"
+        android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
         android:allowBackup="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
