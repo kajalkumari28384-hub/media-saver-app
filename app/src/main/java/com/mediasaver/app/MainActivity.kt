@@ -1,20 +1,77 @@
 package com.mediasaver.app
 
 import android.os.Bundle
-import android.widget.TextView
+import android.widget.*
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
+import okhttp3.*
+import org.json.JSONObject
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
+    private val client = OkHttpClient()
+    private val backendUrl = "https://media-saver-app-cu8d.onrender.com"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val tv = TextView(this)
-        var sharedUrl = "No link shared yet"
+
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(40, 100, 40, 40)
+
+        val title = TextView(this)
+        title.text = "Media Saver"
+        title.textSize = 24f
+        layout.addView(title)
+
+        val input = EditText(this)
+        input.hint = "Paste video link here"
+        var sharedUrl = ""
         if (intent?.action == "android.intent.action.SEND" && intent.type == "text/plain") {
-            sharedUrl = intent.getStringExtra("android.intent.extra.TEXT") ?: sharedUrl
+            sharedUrl = intent.getStringExtra("android.intent.extra.TEXT") ?: ""
+            input.setText(sharedUrl)
         }
-        tv.text = "Media Saver\nBackend: media-saver-app-cu8d.onrender.com\n\nShared link: $sharedUrl"
-        tv.textSize = 18f
-        tv.setPadding(40, 100, 40, 40)
-        setContentView(tv)
+        layout.addView(input)
+
+        val statusText = TextView(this)
+        statusText.text = "Ready"
+        statusText.setPadding(0, 30, 0, 30)
+        layout.addView(statusText)
+
+        val button = Button(this)
+        button.text = "Download"
+        layout.addView(button)
+
+        button.setOnClickListener {
+            val url = input.text.toString().trim()
+            if (url.isEmpty()) {
+                statusText.text = "Please paste a link"
+                return@setOnClickListener
+            }
+            statusText.text = "Downloading... (this may take a while)"
+
+            val json = JSONObject()
+            json.put("url", url)
+            json.put("quality", "best")
+            val body = RequestBody.create(
+                MediaType.parse("application/json"), json.toString()
+            )
+            val request = Request.Builder()
+                .url("$backendUrl/download")
+                .post(body)
+                .build()
+
+            client.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    runOnUiThread { statusText.text = "Failed: ${e.message}" }
+                }
+                override fun onResponse(call: Call, response: Response) {
+                    val res = response.body()?.string() ?: "{}"
+                    runOnUiThread { statusText.text = "Done!\n$res" }
+                }
+            })
+        }
+
+        setContentView(layout)
     }
 }

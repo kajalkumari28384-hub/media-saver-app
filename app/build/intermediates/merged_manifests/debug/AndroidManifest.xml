@@ -21,7 +21,8 @@
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
         android:extractNativeLibs="false"
-        android:label="Media Saver" >
+        android:label="Media Saver"
+        android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
         <activity
             android:name="com.mediasaver.app.MainActivity"
             android:exported="true" >
