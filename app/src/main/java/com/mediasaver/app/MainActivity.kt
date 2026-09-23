@@ -1,6 +1,9 @@
 package com.mediasaver.app
 
+import android.content.ContentValues
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.widget.EditText
 import android.widget.Button
 import android.widget.TextView
@@ -24,6 +27,18 @@ class MainActivity : AppCompatActivity() {
         .writeTimeout(5, TimeUnit.MINUTES)
         .build()
     private val backendUrl = "https://media-saver-app-cu8d.onrender.com"
+
+    private fun saveToGallery(bytes: ByteArray, filename: String) {
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, filename)
+            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/MediaSaver")
+        }
+        val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+        if (uri != null) {
+            contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = "Please paste a link"
                 return@setOnClickListener
             }
-            statusText.text = "Downloading... (server is processing, please wait, can take 1-2 min)"
+            statusText.text = "Step 1/2: Processing on server..."
 
             val json = JSONObject()
             json.put("url", url)
@@ -77,7 +92,29 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun onResponse(call: Call, response: Response) {
                     val res = response.body?.string() ?: "{}"
-                    runOnUiThread { statusText.text = "Done!\n$res" }
+                    val obj = JSONObject(res)
+                    val filename = obj.optString("filename", "")
+                    if (filename.isEmpty()) {
+                        runOnUiThread { statusText.text = "Failed: no file returned\n$res" }
+                        return
+                    }
+                    runOnUiThread { statusText.text = "Step 2/2: Saving to phone..." }
+
+                    val fileReq = Request.Builder().url("$backendUrl/file/$filename").build()
+                    client.newCall(fileReq).enqueue(object : Callback {
+                        override fun onFailure(call: Call, e: IOException) {
+                            runOnUiThread { statusText.text = "Failed to fetch file: ${e.message}" }
+                        }
+                        override fun onResponse(call: Call, response: Response) {
+                            val bytes = response.body?.bytes()
+                            if (bytes != null) {
+                                saveToGallery(bytes, filename)
+                                runOnUiThread { statusText.text = "Saved to gallery: $filename" }
+                            } else {
+                                runOnUiThread { statusText.text = "Failed: empty file" }
+                            }
+                        }
+                    })
                 }
             })
         }
