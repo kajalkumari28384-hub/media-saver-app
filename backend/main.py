@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import yt_dlp
 import uuid
@@ -54,4 +55,10 @@ def download(req: DownloadRequest):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(req.url, download=True)
         filename = ydl.prepare_filename(info)
-    return {"platform": detect_platform(req.url), "file": filename, "status": "done"}
+    basename = os.path.basename(filename)
+    return {"platform": detect_platform(req.url), "filename": basename, "status": "done"}
+
+@app.get("/file/{filename}")
+def get_file(filename: str):
+    path = f"downloads/{filename}"
+    return FileResponse(path, media_type="video/mp4", filename=filename)
