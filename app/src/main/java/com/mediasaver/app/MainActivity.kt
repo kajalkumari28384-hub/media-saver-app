@@ -1,6 +1,8 @@
 package com.mediasaver.app
 
 import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -16,8 +18,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -38,6 +44,18 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) {
             contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
         }
+    }
+
+    private fun addToHistory(platform: String, filename: String) {
+        val prefs = getSharedPreferences("history", Context.MODE_PRIVATE)
+        val raw = prefs.getString("items", "[]") ?: "[]"
+        val arr = JSONArray(raw)
+        val entry = JSONObject()
+        entry.put("platform", platform)
+        entry.put("filename", filename)
+        entry.put("time", SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date()))
+        arr.put(entry)
+        prefs.edit().putString("items", arr.toString()).apply()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +87,13 @@ class MainActivity : AppCompatActivity() {
         button.text = "Download"
         layout.addView(button)
 
+        val historyButton = Button(this)
+        historyButton.text = "View History"
+        historyButton.setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
+        layout.addView(historyButton)
+
         button.setOnClickListener {
             val url = input.text.toString().trim()
             if (url.isEmpty()) {
@@ -94,6 +119,7 @@ class MainActivity : AppCompatActivity() {
                     val res = response.body?.string() ?: "{}"
                     val obj = JSONObject(res)
                     val filename = obj.optString("filename", "")
+                    val platform = obj.optString("platform", "unknown")
                     if (filename.isEmpty()) {
                         runOnUiThread { statusText.text = "Failed: no file returned\n$res" }
                         return
@@ -109,6 +135,7 @@ class MainActivity : AppCompatActivity() {
                             val bytes = response.body?.bytes()
                             if (bytes != null) {
                                 saveToGallery(bytes, filename)
+                                addToHistory(platform, filename)
                                 runOnUiThread { statusText.text = "Saved to gallery: $filename" }
                             } else {
                                 runOnUiThread { statusText.text = "Failed: empty file" }

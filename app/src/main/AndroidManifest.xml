@@ -16,5 +16,6 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <activity android:name=".HistoryActivity" android:exported="false" />
     </application>
 </manifest>
