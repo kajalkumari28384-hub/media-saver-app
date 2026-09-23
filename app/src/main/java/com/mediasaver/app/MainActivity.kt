@@ -1,10 +1,18 @@
 package com.mediasaver.app
 
 import android.os.Bundle
-import android.widget.*
+import android.widget.EditText
+import android.widget.Button
+import android.widget.TextView
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.*
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
 
@@ -26,9 +34,8 @@ class MainActivity : AppCompatActivity() {
 
         val input = EditText(this)
         input.hint = "Paste video link here"
-        var sharedUrl = ""
         if (intent?.action == "android.intent.action.SEND" && intent.type == "text/plain") {
-            sharedUrl = intent.getStringExtra("android.intent.extra.TEXT") ?: ""
+            val sharedUrl = intent.getStringExtra("android.intent.extra.TEXT") ?: ""
             input.setText(sharedUrl)
         }
         layout.addView(input)
@@ -53,9 +60,7 @@ class MainActivity : AppCompatActivity() {
             val json = JSONObject()
             json.put("url", url)
             json.put("quality", "best")
-            val body = RequestBody.create(
-                MediaType.parse("application/json"), json.toString()
-            )
+            val body = json.toString().toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
                 .url("$backendUrl/download")
                 .post(body)
@@ -66,7 +71,7 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread { statusText.text = "Failed: ${e.message}" }
                 }
                 override fun onResponse(call: Call, response: Response) {
-                    val res = response.body()?.string() ?: "{}"
+                    val res = response.body?.string() ?: "{}"
                     runOnUiThread { statusText.text = "Done!\n$res" }
                 }
             })
