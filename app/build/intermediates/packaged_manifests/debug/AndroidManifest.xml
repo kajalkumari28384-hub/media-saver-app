@@ -39,6 +39,9 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="com.mediasaver.app.HistoryActivity"
+            android:exported="false" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"
