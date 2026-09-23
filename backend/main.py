@@ -48,15 +48,21 @@ def get_formats(req: LinkRequest):
 
 @app.post("/download")
 def download(req: DownloadRequest):
+    platform = detect_platform(req.url)
     file_id = str(uuid.uuid4())
     out_path = f"downloads/{file_id}.%(ext)s"
-    fmt = "best" if req.quality == "best" else f"bestvideo[height<={req.quality[:-1]}]+bestaudio/best"
+
+    if platform == "youtube" and req.quality != "best":
+        fmt = f"bestvideo[height<={req.quality[:-1]}]+bestaudio/best[height<={req.quality[:-1]}]/best"
+    else:
+        fmt = "best"
+
     ydl_opts = {"outtmpl": out_path, "format": fmt, "quiet": True}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(req.url, download=True)
         filename = ydl.prepare_filename(info)
     basename = os.path.basename(filename)
-    return {"platform": detect_platform(req.url), "filename": basename, "status": "done"}
+    return {"platform": platform, "filename": basename, "status": "done"}
 
 @app.get("/file/{filename}")
 def get_file(filename: str):
