@@ -23,7 +23,7 @@ def detect_platform(url: str) -> str:
         return "instagram"
     elif "twitter.com" in url or "x.com" in url:
         return "twitter"
-    elif "pinterest.com" in url:
+    elif "pinterest.com" in url or "pin.it" in url:
         return "pinterest"
     return "unknown"
 
@@ -47,6 +47,11 @@ def download(req: DownloadRequest):
         fmt = "best"
 
     ydl_opts = {"outtmpl": out_path, "format": fmt, "quiet": True}
+
+    if platform == "youtube":
+        ydl_opts["extractor_args"] = {"youtube": {"player_client": ["android", "web"]}}
+        ydl_opts["http_headers"] = {"User-Agent": "com.google.android.youtube/19.09.37"}
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(req.url, download=True)
