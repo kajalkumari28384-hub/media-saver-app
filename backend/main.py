@@ -209,17 +209,60 @@ def download_direct(url, file_id, referer):
     headers = {
         "User-Agent": PIN_HEADERS["User-Agent"],
         "Accept": "*/*",
-        "Referer": referer
+        "Referer": referer,
     }
+
+    # Pinterest often serves videos as HLS/M3U8.
+    # Never save an M3U8 playlist as an MP4.
+    is_hls = (
+        ".m3u8" in url.lower()
+        or "m3u8" in url.lower()
+    )
+
+    if is_hls:
+        output = f"downloads/{file_id}.%(ext)s"
+
+        opts = {
+            "outtmpl": output,
+            "format": "best",
+            "merge_output_format": "mp4",
+            "quiet": True,
+            "http_headers": headers,
+        }
+
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = os.path.basename(
+                ydl.prepare_filename(info)
+            )
+
+        # yt-dlp may produce .mp4 after merging.
+        candidates = [
+            f"downloads/{file_id}.mp4",
+            f"downloads/{filename}",
+        ]
+
+        for path in candidates:
+            if os.path.exists(path):
+                with open(path, "rb") as f:
+                    head = f.read(32)
+
+                if b"ftyp" in head:
+                    return os.path.basename(path), "video"
+
+        raise Exception("Pinterest HLS video was not converted to a valid MP4")
 
     r = requests.get(
         url,
         headers=headers,
-        stream=True,
         timeout=90
     )
-
     r.raise_for_status()
+
+    data = r.content
+
+    if not data:
+        raise Exception("Pinterest returned an empty video")
 
     content_type = (
         r.headers.get("content-type", "")
@@ -227,36 +270,26 @@ def download_direct(url, file_id, referer):
         .split(";")[0]
     )
 
-    path = urlparse(url).path.lower()
-
-    if "video" in content_type or path.endswith(
-        (".mp4", ".m4v", ".mov")
+    # A real MP4 normally contains an ftyp box near the beginning.
+    if (
+        "video/" in content_type
+        or data[4:8] == b"ftyp"
+        or data[:16].find(b"ftyp") >= 0
     ):
-        ext = ".mp4"
-        media_type = "video"
+        filename = f"{file_id}.mp4"
+        filepath = os.path.join("downloads", filename)
 
-    elif "png" in content_type or path.endswith(".png"):
-        ext = ".png"
-        media_type = "image"
+        with open(filepath, "wb") as f:
+            f.write(data)
 
-    elif "webp" in content_type or path.endswith(".webp"):
-        ext = ".webp"
-        media_type = "image"
+        with open(filepath, "rb") as f:
+            if b"ftyp" not in f.read(64):
+                os.remove(filepath)
+                raise Exception("Downloaded video is not a valid MP4")
 
-    else:
-        ext = ".jpg"
-        media_type = "image"
+        return filename, "video"
 
-    filename = file_id + ext
-    filepath = os.path.join("downloads", filename)
-
-    with open(filepath, "wb") as f:
-        for chunk in r.iter_content(1024 * 1024):
-            if chunk:
-                f.write(chunk)
-
-    return filename, media_type
-
+    raise Exception("Pinterest returned non-video data")
 
 def download_pinterest(url, file_id):
 
