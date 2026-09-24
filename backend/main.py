@@ -31,6 +31,8 @@ def detect_platform(url: str) -> str:
         return "twitter"
     if "pinterest.com" in u or "pin.it" in u:
         return "pinterest"
+    if "reddit.com" in u or "redd.it" in u:
+        return "reddit"
     return "unknown"
 
 
@@ -464,6 +466,14 @@ def download(req: DownloadRequest):
         opts["http_headers"] = {
             "User-Agent":
             "com.google.android.youtube/19.09.37"
+        }
+
+    elif platform == "reddit":
+        opts["http_headers"] = {
+            "User-Agent":
+            "Mozilla/5.0 (Android 15) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36",
+            "Accept": "*/*"
         }
 
     try:
