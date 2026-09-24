@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.view.Gravity
 import android.widget.EditText
 import android.widget.Button
 import android.widget.TextView
@@ -37,13 +36,20 @@ class MainActivity : AppCompatActivity() {
         .build()
     private val backendUrl = "https://media-saver-app-cu8d.onrender.com"
 
-    private fun saveToGallery(bytes: ByteArray, filename: String): Uri? {
-        val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, filename)
-            put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/MediaSaver")
+    private fun saveToGallery(bytes: ByteArray, filename: String, isImage: Boolean): Uri? {
+        val values = ContentValues()
+        val uri: Uri?
+        if (isImage) {
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/MediaSaver")
+            uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        } else {
+            values.put(MediaStore.Video.Media.DISPLAY_NAME, filename)
+            values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/MediaSaver")
+            uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
         }
-        val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
         if (uri != null) {
             contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
         }
@@ -142,6 +148,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     val filename = obj.optString("filename", "")
                     val platform = obj.optString("platform", "unknown")
+                    val type = obj.optString("type", "video")
                     if (filename.isEmpty()) {
                         runOnUiThread { statusText.text = "Failed: ${obj.optString("error", res)}" }
                         return
@@ -156,7 +163,7 @@ class MainActivity : AppCompatActivity() {
                         override fun onResponse(call: Call, response: Response) {
                             val bytes = response.body?.bytes()
                             if (bytes != null) {
-                                val uri = saveToGallery(bytes, filename)
+                                val uri = saveToGallery(bytes, filename, type == "image")
                                 addToHistory(platform, filename, uri)
                                 runOnUiThread { statusText.text = "Saved: $filename" }
                             } else {
