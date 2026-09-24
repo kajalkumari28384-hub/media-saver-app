@@ -22,17 +22,15 @@ class DownloadRequest(BaseModel):
 
 
 def detect_platform(url: str) -> str:
-    url = url.lower()
-
-    if "youtube.com" in url or "youtu.be" in url:
+    u = url.lower()
+    if "youtube.com" in u or "youtu.be" in u:
         return "youtube"
-    elif "instagram.com" in url:
+    if "instagram.com" in u:
         return "instagram"
-    elif "twitter.com" in url or "x.com" in url:
+    if "twitter.com" in u or "x.com" in u:
         return "twitter"
-    elif "pinterest.com" in url or "pin.it" in url:
+    if "pinterest.com" in u or "pin.it" in u:
         return "pinterest"
-
     return "unknown"
 
 
@@ -48,241 +46,177 @@ PIN_HEADERS = {
 }
 
 
-def resolve_pinterest_url(url):
+def resolve_pinterest(url):
     r = requests.get(
         url,
         headers=PIN_HEADERS,
         allow_redirects=True,
-        timeout=25,
+        timeout=30
     )
     r.raise_for_status()
     return r.url, r.text
 
 
-def extract_pin_id(url, page_html=""):
-    # Normal Pinterest pin URL
-    match = re.search(
-        r"/pin/(?:[^/?#]+--)?(\d+)",
-        url,
-        re.I,
-    )
-
-    if match:
-        return match.group(1)
-
-    # Try to find a Pinterest pin id inside the HTML
+def get_pin_id(url, page):
     patterns = [
-        r'"pinId"\s*:\s*"(\d+)"',
-        r'"pin_id"\s*:\s*"(\d+)"',
-        r'"id"\s*:\s*"(\d{12,})"',
+        r"/pin/(?:[^/?#]+--)?(\d+)",
+        r'"pinId"\s*:\s*"?(\d+)',
+        r'"pin_id"\s*:\s*"?(\d+)',
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, page_html)
-        if match:
-            return match.group(1)
+        m = re.search(pattern, url)
+        if m:
+            return m.group(1)
+
+        m = re.search(pattern, page)
+        if m:
+            return m.group(1)
 
     return None
 
 
-def pinterest_api_data(pin_id):
-    api_url = "https://www.pinterest.com/resource/PinResource/get/"
-
-    options = {
-        "field_set_key": "unauth_react_main_pin",
-        "id": pin_id,
-    }
+def pinterest_api(pin_id):
+    url = "https://www.pinterest.com/resource/PinResource/get/"
 
     params = {
-        "data": json.dumps({"options": options})
+        "data": json.dumps({
+            "options": {
+                "field_set_key": "unauth_react_main_pin",
+                "id": pin_id
+            }
+        })
     }
 
-    headers = {
-        **PIN_HEADERS,
-        "X-Pinterest-PWS-Handler": "www/[username].js",
-    }
+    headers = dict(PIN_HEADERS)
+    headers["X-Pinterest-PWS-Handler"] = "www/[username].js"
 
     r = requests.get(
-        api_url,
+        url,
         params=params,
         headers=headers,
-        timeout=25,
+        timeout=30
     )
 
     r.raise_for_status()
 
-    payload = r.json()
-
-    return payload.get("resource_response", {}).get("data")
+    return r.json().get("resource_response", {}).get("data")
 
 
-def collect_video_urls(obj):
-    found = []
+def find_media(data):
+    videos = []
+    images = []
 
-    if isinstance(obj, dict):
-        for key, value in obj.items():
+    def walk(obj):
+        if isinstance(obj, dict):
 
-            if key == "video_list" and isinstance(value, dict):
-                for item in value.values():
-                    if isinstance(item, dict):
-                        media_url = item.get("url")
+            video_list = obj.get("video_list")
 
-                        if media_url:
-                            found.append({
-                                "url": media_url,
-                                "width": item.get("width") or 0,
-                                "height": item.get("height") or 0,
-                                "duration": item.get("duration") or 0,
-                            })
-
-            found.extend(collect_video_urls(value))
-
-    elif isinstance(obj, list):
-        for item in obj:
-            found.extend(collect_video_urls(item))
-
-    return found
-
-
-def collect_image_urls(obj):
-    found = []
-
-    if isinstance(obj, dict):
-        images = obj.get("images")
-
-        if isinstance(images, dict):
-            for item in images.values():
-                if isinstance(item, dict):
-                    media_url = item.get("url")
-
-                    if media_url:
-                        found.append({
-                            "url": media_url,
-                            "width": item.get("width") or 0,
-                            "height": item.get("height") or 0,
+            if isinstance(video_list, dict):
+                for item in video_list.values():
+                    if isinstance(item, dict) and item.get("url"):
+                        videos.append({
+                            "url": item["url"],
+                            "width": item.get("width", 0) or 0,
+                            "height": item.get("height", 0) or 0
                         })
 
-        for value in obj.values():
-            found.extend(collect_image_urls(value))
+            imgs = obj.get("images")
 
-    elif isinstance(obj, list):
-        for item in obj:
-            found.extend(collect_image_urls(item))
+            if isinstance(imgs, dict):
+                for item in imgs.values():
+                    if isinstance(item, dict) and item.get("url"):
+                        images.append({
+                            "url": item["url"],
+                            "width": item.get("width", 0) or 0,
+                            "height": item.get("height", 0) or 0
+                        })
 
-    return found
+            for value in obj.values():
+                walk(value)
+
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+
+    walk(data)
+
+    return videos, images
 
 
-def extract_html_media(page_html):
+def html_media(page):
     images = []
     videos = []
 
-    # Meta tags
-    for tag in re.findall(r"<meta\b[^>]*>", page_html, re.I):
+    tags = re.findall(r"<meta\b[^>]*>", page, re.I)
+
+    for tag in tags:
         attrs = dict(
             re.findall(
-                r"""([:\w-]+)\s*=\s*["']([^"']*)["']""",
+                r"""([\w:-]+)\s*=\s*["']([^"']*)["']""",
                 tag,
-                re.I,
+                re.I
             )
         )
 
-        prop = (
+        key = (
             attrs.get("property")
             or attrs.get("name")
             or ""
         ).lower()
 
-        content = attrs.get("content")
+        value = attrs.get("content")
 
-        if not content:
+        if not value:
             continue
 
-        content = html.unescape(content)
+        value = html.unescape(value)
 
-        if prop in {
+        if key in {
             "og:image",
             "og:image:url",
             "twitter:image",
-            "twitter:image:src",
+            "twitter:image:src"
         }:
-            images.append(content)
+            images.append(value)
 
-        elif prop in {
+        if key in {
             "og:video",
             "og:video:url",
             "og:video:secure_url",
-            "twitter:player:stream",
+            "twitter:player:stream"
         }:
-            videos.append(content)
+            videos.append(value)
 
-    # Pinterest sometimes keeps direct media URLs inside JSON/script data.
-    cleaned = html.unescape(page_html).replace("\\/", "/")
+    page = html.unescape(page).replace("\\/", "/")
 
-    video_patterns = re.findall(
+    videos += re.findall(
         r'https?://[^"\']+?\.(?:mp4|m4v)(?:\?[^"\']*)?',
-        cleaned,
-        re.I,
+        page,
+        re.I
     )
 
-    image_patterns = re.findall(
+    images += re.findall(
         r'https?://[^"\']+?i\.pinimg\.com[^"\']+?\.(?:jpg|jpeg|png|webp)(?:\?[^"\']*)?',
-        cleaned,
-        re.I,
+        page,
+        re.I
     )
-
-    videos.extend(video_patterns)
-    images.extend(image_patterns)
 
     return list(dict.fromkeys(images)), list(dict.fromkeys(videos))
 
 
-def choose_best_video(videos):
-    if not videos:
-        return None
-
-    direct = [
-        item for item in videos
-        if not item["url"].lower().split("?")[0].endswith(".m3u8")
-    ]
-
-    if direct:
-        videos = direct
-
-    return max(
-        videos,
-        key=lambda x: (
-            (x.get("width") or 0) * (x.get("height") or 0),
-            x.get("duration") or 0,
-        ),
-    )["url"]
-
-
-def choose_best_image(images):
-    if not images:
-        return None
-
-    return max(
-        images,
-        key=lambda x: (
-            (x.get("width") or 0) * (x.get("height") or 0)
-        ),
-    )["url"] if isinstance(images[0], dict) else images[0]
-
-
-def download_direct_media(media_url, file_id, referer=None):
+def download_direct(url, file_id, referer):
     headers = {
         "User-Agent": PIN_HEADERS["User-Agent"],
         "Accept": "*/*",
+        "Referer": referer
     }
 
-    if referer:
-        headers["Referer"] = referer
-
     r = requests.get(
-        media_url,
+        url,
         headers=headers,
         stream=True,
-        timeout=60,
+        timeout=90
     )
 
     r.raise_for_status()
@@ -293,96 +227,135 @@ def download_direct_media(media_url, file_id, referer=None):
         .split(";")[0]
     )
 
-    url_path = urlparse(media_url).path.lower()
+    path = urlparse(url).path.lower()
 
-    if "video" in content_type or url_path.endswith(
+    if "video" in content_type or path.endswith(
         (".mp4", ".m4v", ".mov")
     ):
         ext = ".mp4"
         media_type = "video"
-    elif "png" in content_type or url_path.endswith(".png"):
+
+    elif "png" in content_type or path.endswith(".png"):
         ext = ".png"
         media_type = "image"
-    elif "webp" in content_type or url_path.endswith(".webp"):
+
+    elif "webp" in content_type or path.endswith(".webp"):
         ext = ".webp"
         media_type = "image"
+
     else:
         ext = ".jpg"
         media_type = "image"
 
-    filename = f"{file_id}{ext}"
-    path = os.path.join("downloads", filename)
+    filename = file_id + ext
+    filepath = os.path.join("downloads", filename)
 
-    with open(path, "wb") as f:
-        for chunk in r.iter_content(chunk_size=1024 * 1024):
+    with open(filepath, "wb") as f:
+        for chunk in r.iter_content(1024 * 1024):
             if chunk:
                 f.write(chunk)
 
     return filename, media_type
 
 
-def download_pinterest_media(url, file_id):
-    final_url, page_html = resolve_pinterest_url(url)
+def download_pinterest(url, file_id):
 
-    pin_id = extract_pin_id(final_url, page_html)
+    final_url, page = resolve_pinterest(url)
+
+    pin_id = get_pin_id(final_url, page)
 
     if not pin_id:
-        raise Exception("Could not identify Pinterest Pin ID")
+        raise Exception("Pinterest Pin ID not found")
 
-    # First choice: Pinterest's own public Pin data.
+    # 1. Official Pinterest data
     try:
-        data = pinterest_api_data(pin_id)
+        data = pinterest_api(pin_id)
 
         if data:
-            videos = collect_video_urls(data)
+            videos, images = find_media(data)
 
-            video_url = choose_best_video(videos)
-
-            if video_url:
-                return download_direct_media(
-                    video_url,
-                    file_id,
-                    referer=final_url,
+            if videos:
+                videos.sort(
+                    key=lambda x:
+                    (x["width"] * x["height"]),
+                    reverse=True
                 )
 
-            images = collect_image_urls(data)
-
-            image_url = choose_best_image(images)
-
-            if image_url:
-                return download_direct_media(
-                    image_url,
+                return download_direct(
+                    videos[0]["url"],
                     file_id,
-                    referer=final_url,
+                    final_url
+                )
+
+            if images:
+                images.sort(
+                    key=lambda x:
+                    (x["width"] * x["height"]),
+                    reverse=True
+                )
+
+                return download_direct(
+                    images[0]["url"],
+                    file_id,
+                    final_url
                 )
 
     except Exception:
         pass
 
-    # Second choice: public HTML metadata.
-    images, videos = extract_html_media(page_html)
+    # 2. HTML fallback
+    images, videos = html_media(page)
 
-    if videos:
+    for media_url in videos + images:
         try:
-            return download_direct_media(
-                videos[0],
+            return download_direct(
+                media_url,
                 file_id,
-                referer=final_url,
+                final_url
             )
         except Exception:
-            pass
+            continue
 
-    if images:
-        try:
-            return download_direct_media(
-                images[0],
-                file_id,
-                referer=final_url,
+    # 3. yt-dlp fallback for unusual Pinterest pins
+    try:
+        output = f"downloads/{file_id}.%(ext)s"
+
+        opts = {
+            "outtmpl": output,
+            "format": "best",
+            "quiet": True
+        }
+
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(
+                final_url,
+                download=True
             )
-        except Exception:
-            pass
 
-    raise Exception("Pinterest media could not be extracted")
+            filename = os.path.basename(
+                ydl.prepare_filename(info)
+            )
+
+        ext = os.path.splitext(filename)[1].lower()
+
+        media_type = (
+            "image"
+            if ext in {
+                ".jpg",
+                ".jpeg",
+                ".png",
+                ".webp",
+                ".gif"
+            }
+            else "video"
+        )
+
+        return filename, media_type
+
+    except Exception:
+        raise Exception(
+            "Pinterest media could not be downloaded"
+        )
 
 
 @app.get("/")
@@ -392,155 +365,131 @@ def health():
 
 @app.post("/detect")
 def detect(req: LinkRequest):
-    return {"platform": detect_platform(req.url)}
+    return {
+        "platform": detect_platform(req.url)
+    }
 
 
 @app.post("/download")
 def download(req: DownloadRequest):
+
     platform = detect_platform(req.url)
     file_id = str(uuid.uuid4())
 
-    # Pinterest gets its own extractor first.
-    # This fixes image pins and also handles direct video URLs.
+    # Pinterest gets its own extractor FIRST.
     if platform == "pinterest":
+
         try:
-            filename, media_type = download_pinterest_media(
+            filename, media_type = download_pinterest(
                 req.url,
-                file_id,
+                file_id
             )
 
             return {
-                "platform": platform,
+                "platform": "pinterest",
                 "filename": filename,
                 "status": "done",
-                "type": media_type,
+                "type": media_type
             }
 
-        except Exception as pinterest_error:
-            pinterest_error_message = str(pinterest_error)
-
-            # Keep yt-dlp as a final fallback for unusual Pinterest videos.
-            try:
-                out_path = f"downloads/{file_id}.%(ext)s"
-
-                ydl_opts = {
-                    "outtmpl": out_path,
-                    "format": "best",
-                    "quiet": True,
+        except Exception as e:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "platform": "pinterest",
+                    "status": "error",
+                    "error": str(e)
                 }
+            )
 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(
-                        req.url,
-                        download=True,
-                    )
-
-                    filename = ydl.prepare_filename(info)
-
-                basename = os.path.basename(filename)
-
-                ext = os.path.splitext(basename)[1].lower()
-
-                media_type = (
-                    "image"
-                    if ext in {
-                        ".jpg",
-                        ".jpeg",
-                        ".png",
-                        ".webp",
-                        ".gif",
-                    }
-                    else "video"
-                )
-
-                return {
-                    "platform": platform,
-                    "filename": basename,
-                    "status": "done",
-                    "type": media_type,
-                }
-
-            except Exception:
-                return JSONResponse(
-                    status_code=200,
-                    content={
-                        "platform": platform,
-                        "status": "error",
-                        "error": pinterest_error_message,
-                    },
-                )
-
-    out_path = f"downloads/{file_id}.%(ext)s"
+    # Other platforms
+    output = f"downloads/{file_id}.%(ext)s"
 
     if platform == "youtube" and req.quality != "best":
+        height = req.quality.replace("p", "")
+
         fmt = (
-            f"bestvideo[height<={req.quality[:-1]}]+bestaudio/"
-            f"best[height<={req.quality[:-1]}]/best"
+            f"bestvideo[height<={height}]+bestaudio/"
+            f"best[height<={height}]/best"
         )
     else:
         fmt = "best"
 
-    ydl_opts = {
-        "outtmpl": out_path,
+    opts = {
+        "outtmpl": output,
         "format": fmt,
-        "quiet": True,
+        "quiet": True
     }
 
     if platform == "youtube":
-        ydl_opts["extractor_args"] = {
+        opts["extractor_args"] = {
             "youtube": {
                 "player_client": ["android", "web"]
             }
         }
 
-        ydl_opts["http_headers"] = {
-            "User-Agent": "com.google.android.youtube/19.09.37"
+        opts["http_headers"] = {
+            "User-Agent":
+            "com.google.android.youtube/19.09.37"
         }
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+
             info = ydl.extract_info(
                 req.url,
-                download=True,
+                download=True
             )
 
-            filename = ydl.prepare_filename(info)
-
-        basename = os.path.basename(filename)
+            filename = os.path.basename(
+                ydl.prepare_filename(info)
+            )
 
         return {
             "platform": platform,
-            "filename": basename,
+            "filename": filename,
             "status": "done",
-            "type": "video",
+            "type": "video"
         }
 
     except Exception as e:
+
         return JSONResponse(
             status_code=200,
             content={
                 "platform": platform,
                 "status": "error",
-                "error": str(e),
-            },
+                "error": str(e)
+            }
         )
 
 
 @app.get("/file/{filename}")
 def get_file(filename: str):
-    path = f"downloads/{filename}"
 
-    if filename.lower().endswith(".png"):
+    path = os.path.join(
+        "downloads",
+        filename
+    )
+
+    lower = filename.lower()
+
+    if lower.endswith(".png"):
         media_type = "image/png"
-    elif filename.lower().endswith(".webp"):
+
+    elif lower.endswith(".webp"):
         media_type = "image/webp"
-    elif filename.lower().endswith((".jpg", ".jpeg")):
+
+    elif lower.endswith(
+        (".jpg", ".jpeg")
+    ):
         media_type = "image/jpeg"
+
     else:
         media_type = "video/mp4"
 
     return FileResponse(
         path,
         media_type=media_type,
-        filename=filename,
+        filename=filename
     )
