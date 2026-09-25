@@ -22,7 +22,13 @@
         android:debuggable="true"
         android:extractNativeLibs="false"
         android:label="Media Saver"
-        android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
+        android:theme="@style/MediaSaverTheme" >
+        <activity
+            android:name="com.mediasaver.app.ProfileActivity"
+            android:exported="false" />
+        <activity
+            android:name="com.mediasaver.app.HistoryActivity"
+            android:exported="false" />
         <activity
             android:name="com.mediasaver.app.MainActivity"
             android:exported="true" >
@@ -39,9 +45,6 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
-        <activity
-            android:name="com.mediasaver.app.HistoryActivity"
-            android:exported="false" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

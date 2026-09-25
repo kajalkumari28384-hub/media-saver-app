@@ -1384,6 +1384,15 @@
         <item name="android:minWidth">56dp</item>
         <item name="android:scaleType">center</item>
     </style>
+    <style name="MediaSaverTheme" parent="Theme.AppCompat.Light.NoActionBar">
+
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FAFAF9</item>
+        <item name="android:navigationBarColor">#FAFAF9</item>
+        <item name="android:colorAccent">#121212</item>
+
+    </style>
     <style name="Platform.AppCompat" parent="android:Theme.Holo">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>

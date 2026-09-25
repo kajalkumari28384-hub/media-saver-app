@@ -23,8 +23,7 @@ class DownloadRequest(BaseModel):
 
 def detect_platform(url: str) -> str:
     u = url.lower()
-    if "youtube.com" in u or "youtu.be" in u:
-        return "youtube"
+    # YouTube intentionally unsupported.
     if "instagram.com" in u:
         return "instagram"
     if "twitter.com" in u or "x.com" in u:
@@ -409,6 +408,20 @@ def detect(req: LinkRequest):
 def download(req: DownloadRequest):
 
     platform = detect_platform(req.url)
+
+    if (
+        "youtube.com" in req.url.lower()
+        or "youtu.be" in req.url.lower()
+    ):
+        return JSONResponse(
+            status_code=200,
+            content={
+                "platform": "youtube",
+                "status": "error",
+                "error": "YouTube is not supported by Media Saver."
+            }
+        )
+
     file_id = str(uuid.uuid4())
 
     # Pinterest gets its own extractor FIRST.
@@ -440,35 +453,21 @@ def download(req: DownloadRequest):
     # Other platforms
     output = f"downloads/{file_id}.%(ext)s"
 
-    if platform == "youtube" and req.quality != "best":
-        height = req.quality.replace("p", "")
-
-        fmt = (
-            f"bestvideo[height<={height}]+bestaudio/"
-            f"best[height<={height}]/best"
-        )
+    if platform == "reddit":
+        fmt = "bestvideo*+bestaudio/best"
     else:
         fmt = "best"
 
     opts = {
         "outtmpl": output,
         "format": fmt,
-        "quiet": True
+        "merge_output_format": "mp4",
+        "quiet": True,
+        "noplaylist": True,
+        "retries": 3
     }
 
-    if platform == "youtube":
-        opts["extractor_args"] = {
-            "youtube": {
-                "player_client": ["android", "web"]
-            }
-        }
-
-        opts["http_headers"] = {
-            "User-Agent":
-            "com.google.android.youtube/19.09.37"
-        }
-
-    elif platform == "reddit":
+    if platform == "reddit":
         opts["http_headers"] = {
             "User-Agent":
             "Mozilla/5.0 (Android 15) AppleWebKit/537.36 "

@@ -9,8 +9,8 @@
 9        android:targetSdkVersion="34" />
 10
 11    <uses-permission android:name="android.permission.INTERNET" />
-11-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:3:5-67
-11-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:3:22-64
+11-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:4:5-66
+11-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:4:22-64
 12
 13    <permission
 13-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-3/c41f997d89dcb4a15026eecf032a900d/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
@@ -24,76 +24,82 @@
 17-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-3/c41f997d89dcb4a15026eecf032a900d/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
 18
 19    <application
-19-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:4:5-20:19
+19-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:6:5-36:19
 20        android:allowBackup="true"
-20-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:7:9-35
+20-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:9:9-35
 21        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
 21-->[androidx.core:core:1.9.0] /home/codespace/.gradle/caches/transforms-3/c41f997d89dcb4a15026eecf032a900d/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
 22        android:debuggable="true"
 23        android:extractNativeLibs="false"
 24        android:label="Media Saver"
-24-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:5:9-36
-25        android:theme="@style/Theme.AppCompat.Light.DarkActionBar" >
-25-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:6:9-67
+24-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:7:9-36
+25        android:theme="@style/MediaSaverTheme" >
+25-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:8:9-47
 26        <activity
-26-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:8:9-18:20
-27            android:name="com.mediasaver.app.MainActivity"
-27-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:8:19-47
-28            android:exported="true" >
-28-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:8:48-71
-29            <intent-filter>
-29-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:9:13-12:29
-30                <action android:name="android.intent.action.MAIN" />
-30-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:10:17-69
-30-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:10:25-66
-31
-32                <category android:name="android.intent.category.LAUNCHER" />
-32-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:11:17-77
-32-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:11:27-74
-33            </intent-filter>
-34            <intent-filter>
-34-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:13:13-17:29
-35                <action android:name="android.intent.action.SEND" />
-35-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:14:17-69
-35-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:14:25-66
-36
-37                <category android:name="android.intent.category.DEFAULT" />
-37-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:15:17-76
-37-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:15:27-73
-38
-39                <data android:mimeType="text/plain" />
-39-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:16:17-55
-39-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:16:23-52
-40            </intent-filter>
-41        </activity>
-42        <activity
-42-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:19:9-78
-43            android:name="com.mediasaver.app.HistoryActivity"
-43-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:19:19-50
-44            android:exported="false" />
-44-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:19:51-75
-45
-46        <provider
-46-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
-47            android:name="androidx.startup.InitializationProvider"
-47-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:25:13-67
-48            android:authorities="com.mediasaver.app.androidx-startup"
-48-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:26:13-68
-49            android:exported="false" >
-49-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:27:13-37
-50            <meta-data
-50-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
-51                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-51-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:30:17-75
-52                android:value="androidx.startup" />
-52-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:31:17-49
+26-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:11:9-13:39
+27            android:name="com.mediasaver.app.ProfileActivity"
+27-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:12:13-44
+28            android:exported="false" />
+28-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:13:13-37
+29        <activity
+29-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:15:9-17:39
+30            android:name="com.mediasaver.app.HistoryActivity"
+30-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:16:13-44
+31            android:exported="false" />
+31-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:17:13-37
+32        <activity
+32-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:19:9-34:20
+33            android:name="com.mediasaver.app.MainActivity"
+33-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:20:13-41
+34            android:exported="true" >
+34-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:21:13-36
+35            <intent-filter>
+35-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:23:13-26:29
+36                <action android:name="android.intent.action.MAIN" />
+36-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:24:17-68
+36-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:24:25-66
+37
+38                <category android:name="android.intent.category.LAUNCHER" />
+38-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:25:17-76
+38-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:25:27-74
+39            </intent-filter>
+40            <intent-filter>
+40-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:28:13-32:29
+41                <action android:name="android.intent.action.SEND" />
+41-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:29:17-68
+41-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:29:25-66
+42
+43                <category android:name="android.intent.category.DEFAULT" />
+43-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:30:17-75
+43-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:30:27-73
+44
+45                <data android:mimeType="text/plain" />
+45-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:31:17-54
+45-->/workspaces/media-saver-app/app/src/main/AndroidManifest.xml:31:23-52
+46            </intent-filter>
+47        </activity>
+48
+49        <provider
+49-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+50            android:name="androidx.startup.InitializationProvider"
+50-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:25:13-67
+51            android:authorities="com.mediasaver.app.androidx-startup"
+51-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:26:13-68
+52            android:exported="false" >
+52-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:27:13-37
 53            <meta-data
-53-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/transforms-3/88f8ed64a9612519b723baf28c30c77c/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
-54                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-54-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/transforms-3/88f8ed64a9612519b723baf28c30c77c/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
+53-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+54                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+54-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:30:17-75
 55                android:value="androidx.startup" />
-55-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/transforms-3/88f8ed64a9612519b723baf28c30c77c/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
-56        </provider>
-57    </application>
-58
-59</manifest>
+55-->[androidx.emoji2:emoji2:1.2.0] /home/codespace/.gradle/caches/transforms-3/272b789018953262fa60c55b9e8111fb/transformed/jetified-emoji2-1.2.0/AndroidManifest.xml:31:17-49
+56            <meta-data
+56-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/transforms-3/88f8ed64a9612519b723baf28c30c77c/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
+57                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+57-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/transforms-3/88f8ed64a9612519b723baf28c30c77c/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
+58                android:value="androidx.startup" />
+58-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/codespace/.gradle/caches/transforms-3/88f8ed64a9612519b723baf28c30c77c/transformed/jetified-lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
+59        </provider>
+60    </application>
+61
+62</manifest>

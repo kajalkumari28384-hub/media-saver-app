@@ -1,0 +1,4 @@
+/workspaces/media-saver-app/app/src/main/java/com/mediasaver/app/MainActivity.kt
+/workspaces/media-saver-app/app/src/main/java/com/mediasaver/app/HistoryActivity.kt
+/workspaces/media-saver-app/app/src/main/java/com/mediasaver/app/PlayerActivity.kt
+/workspaces/media-saver-app/app/src/main/java/com/mediasaver/app/ProfileActivity.kt

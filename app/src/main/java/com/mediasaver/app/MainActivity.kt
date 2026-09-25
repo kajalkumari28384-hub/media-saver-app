@@ -4,22 +4,19 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.widget.EditText
-import android.widget.Button
-import android.widget.TextView
-import android.widget.LinearLayout
+import android.view.Gravity
+import android.view.View
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.Call
-import okhttp3.Callback
+import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -29,152 +26,667 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.MINUTES)
         .readTimeout(5, TimeUnit.MINUTES)
         .writeTimeout(5, TimeUnit.MINUTES)
         .build()
+
     private val backendUrl = "https://media-saver-app-cu8d.onrender.com"
 
-    private fun saveToGallery(bytes: ByteArray, filename: String, isImage: Boolean): Uri? {
+    private val bg = Color.rgb(10, 10, 11)
+    private val card = Color.rgb(20, 20, 22)
+    private val field = Color.rgb(28, 28, 31)
+    private val border = Color.rgb(52, 52, 56)
+    private val white = Color.rgb(245, 245, 245)
+    private val muted = Color.rgb(145, 145, 150)
+
+    private fun rounded(
+        color: Int,
+        stroke: Int = color,
+        radius: Float = 22f
+    ) = GradientDrawable().apply {
+        setColor(color)
+        setStroke(1, stroke)
+        cornerRadius = radius
+    }
+
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int = white
+    ) = TextView(this).apply {
+        this.text = value
+        textSize = size
+        settextColor(color)
+        includeFontPadding = false
+    }
+
+    private fun gap(height: Int) =
+        Space(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, height)
+        }
+
+    private fun platformFor(url: String): String {
+        return when {
+            url.contains("instagram.com", true) ||
+            url.contains("instagr.am", true) -> "Instagram"
+
+            url.contains("pinterest.", true) ||
+            url.contains("pin.it", true) -> "Pinterest"
+
+            url.contains("twitter.com", true) ||
+            url.contains("x.com", true) -> "X"
+
+            url.contains("reddit.com", true) ||
+            url.contains("redd.it", true) -> "Reddit"
+
+            else -> ""
+        }
+    }
+
+    private fun saveToGallery(
+        bytes: ByteArray,
+        filename: String,
+        isImage: Boolean
+    ): Uri? {
         val values = ContentValues()
-        val uri: Uri?
-        if (isImage) {
+
+        return if (isImage) {
             values.put(MediaStore.Images.Media.DISPLAY_NAME, filename)
             values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/MediaSaver")
-            uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            values.put(
+                MediaStore.Images.Media.RELATIVE_PATH,
+                Environment.DIRECTORY_PICTURES + "/MediaSaver"
+            )
+
+            val uri = contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                values
+            )
+
+            if (uri != null) {
+                contentResolver.openOutputStream(uri)?.use {
+                    it.write(bytes)
+                }
+            }
+
+            uri
         } else {
             values.put(MediaStore.Video.Media.DISPLAY_NAME, filename)
             values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            values.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/MediaSaver")
-            uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-        }
-        if (uri != null) {
-            contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-        }
-        return uri
-    }
+            values.put(
+                MediaStore.Video.Media.RELATIVE_PATH,
+                Environment.DIRECTORY_MOVIES + "/MediaSaver"
+            )
 
-    private fun addToHistory(platform: String, filename: String, uri: Uri?) {
-        val prefs = getSharedPreferences("history", Context.MODE_PRIVATE)
-        val raw = prefs.getString("items", "[]") ?: "[]"
-        val arr = JSONArray(raw)
-        val entry = JSONObject()
-        entry.put("platform", platform)
-        entry.put("filename", filename)
-        entry.put("uri", uri?.toString() ?: "")
-        entry.put("time", SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date()))
-        arr.put(entry)
-        prefs.edit().putString("items", arr.toString()).apply()
-    }
+            val uri = contentResolver.insert(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                values
+            )
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        val accent = Color.parseColor("#4A90D9")
-
-        val layout = LinearLayout(this)
-        layout.orientation = LinearLayout.VERTICAL
-        layout.setPadding(56, 100, 56, 56)
-        layout.setBackgroundColor(Color.parseColor("#FAFAFA"))
-
-        val title = TextView(this)
-        title.text = "Media Saver"
-        title.textSize = 26f
-        title.setTextColor(Color.parseColor("#212121"))
-        layout.addView(title)
-
-        val spacer1 = TextView(this); spacer1.height = 40; layout.addView(spacer1)
-
-        val input = EditText(this)
-        input.hint = "Paste video link here"
-        input.setPadding(24, 24, 24, 24)
-        if (intent?.action == "android.intent.action.SEND" && intent.type == "text/plain") {
-            val sharedUrl = intent.getStringExtra("android.intent.extra.TEXT") ?: ""
-            input.setText(sharedUrl)
-        }
-        layout.addView(input)
-
-        val statusText = TextView(this)
-        statusText.text = "Ready"
-        statusText.setTextColor(Color.parseColor("#757575"))
-        statusText.setPadding(0, 30, 0, 30)
-        layout.addView(statusText)
-
-        val button = Button(this)
-        button.text = "DOWNLOAD"
-        button.setBackgroundColor(accent)
-        button.setTextColor(Color.WHITE)
-        layout.addView(button)
-
-        val spacer2 = TextView(this); spacer2.height = 20; layout.addView(spacer2)
-
-        val historyButton = Button(this)
-        historyButton.text = "VIEW HISTORY"
-        historyButton.setBackgroundColor(Color.parseColor("#E0E0E0"))
-        historyButton.setTextColor(Color.parseColor("#212121"))
-        historyButton.setOnClickListener {
-            startActivity(Intent(this, HistoryActivity::class.java))
-        }
-        layout.addView(historyButton)
-
-        button.setOnClickListener {
-            val url = input.text.toString().trim()
-            if (url.isEmpty()) {
-                statusText.text = "Please paste a link"
-                return@setOnClickListener
-            }
-            statusText.text = "Step 1/2: Processing on server..."
-
-            val json = JSONObject()
-            json.put("url", url)
-            json.put("quality", "720p")
-            val body = json.toString().toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url("$backendUrl/download")
-                .post(body)
-                .build()
-
-            client.newCall(request).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    runOnUiThread { statusText.text = "Failed: ${e.message}" }
+            if (uri != null) {
+                contentResolver.openOutputStream(uri)?.use {
+                    it.write(bytes)
                 }
-                override fun onResponse(call: Call, response: Response) {
-                    val res = response.body?.string() ?: "{}"
-                    val obj = try { JSONObject(res) } catch (ex: Exception) {
-                        runOnUiThread { statusText.text = "Server error: $res" }
-                        return
-                    }
-                    val filename = obj.optString("filename", "")
-                    val platform = obj.optString("platform", "unknown")
-                    val type = obj.optString("type", "video")
-                    if (filename.isEmpty()) {
-                        runOnUiThread { statusText.text = "Failed: ${obj.optString("error", res)}" }
-                        return
-                    }
-                    runOnUiThread { statusText.text = "Step 2/2: Saving to phone..." }
+            }
 
-                    val fileReq = Request.Builder().url("$backendUrl/file/$filename").build()
-                    client.newCall(fileReq).enqueue(object : Callback {
-                        override fun onFailure(call: Call, e: IOException) {
-                            runOnUiThread { statusText.text = "Failed to fetch file: ${e.message}" }
+            uri
+        }
+    }
+
+    private fun addToHistory(
+        platform: String,
+        filename: String,
+        uri: Uri?
+    ) {
+        val prefs = getSharedPreferences("history", Context.MODE_PRIVATE)
+        val array = JSONArray(
+            prefs.getString("items", "[]") ?: "[]"
+        )
+
+        val item = JSONObject().apply {
+            put("platform", platform)
+            put("filename", filename)
+            put("uri", uri?.toString() ?: "")
+            put(
+                "time",
+                SimpleDateFormat(
+                    "dd MMM, HH:mm",
+                    Locale.getDefault()
+                ).format(Date())
+            )
+        }
+
+        array.put(item)
+
+        prefs.edit()
+            .putString("items", array.toString())
+            .apply()
+    }
+
+    private fun downloadOne(
+        url: String,
+        callback: (Boolean, String) -> Unit
+    ) {
+        val platform = platformFor(url)
+
+        if (platform.isEmpty()) {
+            runOnUiThread {
+                callback(
+                    false,
+                    "Only Instagram, Pinterest, X and Reddit are supported"
+                )
+            }
+            return
+        }
+
+        val json = JSONObject().apply {
+            put("url", url)
+        }
+
+        val body = json.toString()
+            .toRequestBody(
+                "application/json".toMediaType()
+            )
+
+        val request = Request.Builder()
+            .url("$backendUrl/download")
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(
+            object : Callback {
+
+                override fun onFailure(
+                    call: Call,
+                    e: IOException
+                ) {
+                    runOnUiThread {
+                        callback(
+                            false,
+                            e.message ?: "Network error"
+                        )
+                    }
+                }
+
+                override fun onResponse(
+                    call: Call,
+                    response: Response
+                ) {
+                    val raw =
+                        response.body?.string() ?: "{}"
+
+                    val obj = try {
+                        JSONObject(raw)
+                    } catch (_: Exception) {
+                        JSONObject()
+                    }
+
+                    val filename =
+                        obj.optString("filename", "")
+
+                    if (filename.isEmpty()) {
+                        runOnUiThread {
+                            callback(
+                                false,
+                                obj.optString(
+                                    "error",
+                                    "Server error"
+                                )
+                            )
                         }
-                        override fun onResponse(call: Call, response: Response) {
-                            val bytes = response.body?.bytes()
-                            if (bytes != null) {
-                                val uri = saveToGallery(bytes, filename, type == "image")
-                                addToHistory(platform, filename, uri)
-                                runOnUiThread { statusText.text = "Saved: $filename" }
-                            } else {
-                                runOnUiThread { statusText.text = "Failed: empty file" }
+                        return
+                    }
+
+                    val fileRequest =
+                        Request.Builder()
+                            .url("$backendUrl/file/$filename")
+                            .build()
+
+                    client.newCall(fileRequest).enqueue(
+                        object : Callback {
+
+                            override fun onFailure(
+                                call: Call,
+                                e: IOException
+                            ) {
+                                runOnUiThread {
+                                    callback(
+                                        false,
+                                        e.message
+                                            ?: "File fetch failed"
+                                    )
+                                }
+                            }
+
+                            override fun onResponse(
+                                call: Call,
+                                response: Response
+                            ) {
+                                val bytes =
+                                    response.body?.bytes()
+
+                                if (bytes == null) {
+                                    runOnUiThread {
+                                        callback(
+                                            false,
+                                            "Empty file"
+                                        )
+                                    }
+                                    return
+                                }
+
+                                val uri = saveToGallery(
+                                    bytes,
+                                    filename,
+                                    obj.optString(
+                                        "type",
+                                        "video"
+                                    ) == "image"
+                                )
+
+                                addToHistory(
+                                    platform,
+                                    filename,
+                                    uri
+                                )
+
+                                runOnUiThread {
+                                    callback(
+                                        true,
+                                        platform
+                                    )
+                                }
                             }
                         }
-                    })
+                    )
                 }
-            })
+            }
+        )
+    }
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+        super.onCreate(savedInstanceState)
+
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+
+        buildUi()
+    }
+
+    private fun buildUi() {
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(bg)
         }
 
-        setContentView(layout)
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+        }
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 24, 20, 105)
+        }
+
+        // HEADER
+
+        content.addView(
+            text("Media Saver", 28f)
+        )
+
+        content.addView(gap(5))
+
+        content.addView(
+            text("by Youwank Raj", 13f, muted)
+        )
+
+        content.addView(gap(28))
+
+        // MAIN DOWNLOAD CARD
+
+        val downloadCard =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(18, 18, 18, 18)
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        downloadCard.addView(
+            text("SAVE MEDIA", 11f, muted)
+        )
+
+        downloadCard.addView(gap(11))
+
+        val input =
+            EditText(this).apply {
+                hint = "Paste a link"
+                hinttextColor =
+                    Color.rgb(100, 100, 105)
+                settextColor(white)
+                textSize = 17f
+                setSingleLine(true)
+                setPadding(16, 0, 16, 0)
+                background = rounded(
+                    field,
+                    border,
+                    17f
+                )
+            }
+
+        if (
+            intent?.action == Intent.ACTION_SEND &&
+            intent.type == "text/plain"
+        ) {
+            input.setText(
+                intent.getStringExtra(
+                    Intent.EXTRA_TEXT
+                ) ?: ""
+            )
+        }
+
+        downloadCard.addView(
+            input,
+            LinearLayout.LayoutParams(
+                -1,
+                58
+            )
+        )
+
+        downloadCard.addView(gap(11))
+
+        val status =
+            text("Ready", 13f, muted)
+
+        downloadCard.addView(status)
+
+        downloadCard.addView(gap(11))
+
+        val download =
+            TextView(this).apply {
+                text = "DOWNLOAD"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                settextColor(Color.BLACK)
+                typeface =
+                    Typeface.DEFAULT_BOLD
+                background = rounded(
+                    white,
+                    white,
+                    17f
+                )
+                setPadding(0, 15, 0, 15)
+            }
+
+        downloadCard.addView(download)
+
+        content.addView(downloadCard)
+
+        // BULK
+
+        content.addView(gap(14))
+
+        val bulkCard =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setPadding(18, 18, 18, 18)
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        val bulkTitle =
+            LinearLayout(this).apply {
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        bulkTitle.addView(
+            text("Bulk download", 18f),
+            LinearLayout.LayoutParams(
+                0,
+                -2,
+                1f
+            )
+        )
+
+        val bulkToggle =
+            text("＋", 27f, white).apply {
+                gravity = Gravity.CENTER
+            }
+
+        bulkTitle.addView(
+            bulkToggle,
+            LinearLayout.LayoutParams(
+                42,
+                42
+            )
+        )
+
+        bulkCard.addView(bulkTitle)
+
+        val bulkInput =
+            EditText(this).apply {
+                hint = "One link per line"
+                hinttextColor =
+                    Color.rgb(100, 100, 105)
+                settextColor(white)
+                textSize = 15f
+                gravity = Gravity.TOP
+                minLines = 4
+                setPadding(16, 14, 16, 14)
+                background = rounded(
+                    field,
+                    border,
+                    17f
+                )
+                visibility = View.GONE
+            }
+
+        bulkCard.addView(gap(10))
+        bulkCard.addView(bulkInput)
+
+        val queue =
+            TextView(this).apply {
+                text = "START QUEUE"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                settextColor(Color.BLACK)
+                typeface =
+                    Typeface.DEFAULT_BOLD
+                background = rounded(
+                    white,
+                    white,
+                    17f
+                )
+                setPadding(0, 15, 0, 15)
+                visibility = View.GONE
+            }
+
+        bulkCard.addView(gap(10))
+        bulkCard.addView(queue)
+
+        content.addView(bulkCard)
+
+        bulkToggle.setOnClickListener {
+            val open =
+                bulkInput.visibility != View.VISIBLE
+
+            bulkInput.visibility =
+                if (open) View.VISIBLE
+                else View.GONE
+
+            queue.visibility =
+                if (open) View.VISIBLE
+                else View.GONE
+
+            bulkToggle.text =
+                if (open) "−" else "＋"
+        }
+
+        content.addView(gap(24))
+
+        content.addView(
+            text("SUPPORTED", 11f, muted)
+        )
+
+        content.addView(gap(7))
+
+        content.addView(
+            text(
+                "Instagram  •  Pinterest  •  X  •  Reddit",
+                13f,
+                muted
+            )
+        )
+
+        scroll.addView(content)
+
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
+
+        // BOTTOM NAV
+
+        val nav =
+            LinearLayout(this).apply {
+                gravity =
+                    Gravity.CENTER_VERTICAL
+                setPadding(20, 6, 20, 6)
+                setBackgroundColor(
+                    Color.rgb(15, 15, 16)
+                )
+            }
+
+        val home =
+            text("⌂", 29f, white).apply {
+                gravity = Gravity.CENTER
+            }
+
+        val profile =
+            text("◯", 25f, muted).apply {
+                gravity = Gravity.CENTER
+            }
+
+        nav.addView(
+            home,
+            LinearLayout.LayoutParams(
+                0,
+                58,
+                1f
+            )
+        )
+
+        nav.addView(
+            profile,
+            LinearLayout.LayoutParams(
+                0,
+                58,
+                1f
+            )
+        )
+
+        root.addView(nav)
+
+        home.setOnClickListener {
+            scroll.smoothScrollTo(0, 0)
+        }
+
+        profile.setOnClickListener {
+            startActivity(
+                Intent(
+                    this,
+                    ProfileActivity::class.java
+                )
+            )
+        }
+
+        setContentView(root)
+
+        // DOWNLOAD
+
+        download.setOnClickListener {
+
+            val url =
+                input.text.toString().trim()
+
+            if (url.isEmpty()) {
+                status.text =
+                    "Paste a link first"
+                return@setOnClickListener
+            }
+
+            download.isEnabled = false
+            status.text = "Downloading…"
+
+            downloadOne(url) { success, message ->
+
+                status.text =
+                    if (success)
+                        "Saved • $message"
+                    else
+                        "Failed • $message"
+
+                download.isEnabled = true
+            }
+        }
+
+        // BULK QUEUE
+
+        queue.setOnClickListener {
+
+            val urls =
+                bulkInput.text
+                    .toString()
+                    .lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+
+            if (urls.isEmpty()) {
+                return@setOnClickListener
+            }
+
+            queue.isEnabled = false
+
+            var index = 0
+
+            fun next() {
+
+                if (index >= urls.size) {
+                    queue.text = "DONE"
+                    queue.isEnabled = true
+                    return
+                }
+
+                queue.text =
+                    "${index + 1}/${urls.size}"
+
+                downloadOne(urls[index]) {
+                        _, _ ->
+
+                    index++
+                    next()
+                }
+            }
+
+            next()
+        }
     }
 }

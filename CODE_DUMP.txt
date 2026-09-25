@@ -1,0 +1,2092 @@
+]633;E;echo "=== STRUCTURE ===";2665285d-f051-4606-96b3-729c77dbfc96]633;C=== STRUCTURE ===
+app/src/main/res/values/styles.xml
+app/src/main/AndroidManifest.xml
+app/src/main/java/com/mediasaver/app/PlayerActivity.kt
+app/src/main/java/com/mediasaver/app/HistoryActivity.kt
+app/src/main/java/com/mediasaver/app/ProfileActivity.kt
+app/src/main/java/com/mediasaver/app/MainActivity.kt
+
+===== app/src/main/res/values/styles.xml =====
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style
+        name="MediaSaverTheme"
+        parent="Theme.AppCompat.Light.NoActionBar">
+
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#FAFAF9</item>
+        <item name="android:navigationBarColor">#FAFAF9</item>
+        <item name="android:colorAccent">#121212</item>
+
+    </style>
+
+</resources>
+
+===== app/src/main/AndroidManifest.xml =====
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <application
+        android:label="Media Saver"
+        android:theme="@style/MediaSaverTheme"
+        android:allowBackup="true">
+
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false"/>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+
+        </activity>
+
+    </application>
+
+</manifest>
+
+===== app/src/main/java/com/mediasaver/app/PlayerActivity.kt =====
+package com.mediasaver.app
+
+import android.net.Uri
+import android.os.Bundle
+import android.view.Gravity
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+
+class PlayerActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val uri = intent.getStringExtra("uri")?.let { Uri.parse(it) }
+        val type = intent.getStringExtra("type") ?: "video"
+
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.gravity = Gravity.CENTER
+        root.setBackgroundColor(android.graphics.Color.BLACK)
+        root.setPadding(20, 20, 20, 20)
+
+        if (uri == null) {
+            val error = TextView(this)
+            error.text = "Media not available"
+            error.setTextColor(android.graphics.Color.WHITE)
+            root.addView(error)
+            setContentView(root)
+            return
+        }
+
+        if (type == "image") {
+            val image = ImageView(this)
+            image.setImageURI(uri)
+            image.adjustViewBounds = true
+            image.scaleType = ImageView.ScaleType.FIT_CENTER
+
+            root.addView(
+                image,
+                LinearLayout.LayoutParams(-1, 0, 1f)
+            )
+        } else {
+            val video = VideoView(this)
+            video.setVideoURI(uri)
+            video.setMediaController(MediaController(this))
+            video.start()
+
+            root.addView(
+                video,
+                LinearLayout.LayoutParams(-1, 0, 1f)
+            )
+        }
+
+        setContentView(root)
+    }
+}
+
+===== app/src/main/java/com/mediasaver/app/HistoryActivity.kt =====
+package com.mediasaver.app
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.view.animation.AlphaAnimation
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONArray
+
+class HistoryActivity : AppCompatActivity() {
+
+    private val bg = Color.rgb(10, 10, 11)
+    private val card = Color.rgb(20, 20, 22)
+    private val border = Color.rgb(52, 52, 56)
+    private val white = Color.rgb(245, 245, 245)
+    private val muted = Color.rgb(145, 145, 150)
+
+    private lateinit var list:
+        LinearLayout
+
+    private var filter = "All"
+
+    private fun rounded(
+        color: Int,
+        stroke: Int = color,
+        radius: Float = 20f
+    ) = GradientDrawable().apply {
+        setColor(color)
+        setStroke(1, stroke)
+        cornerRadius = radius
+    }
+
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int = white
+    ) = TextView(this).apply {
+        text = value
+        textSize = size
+        setTextColor(color)
+        includeFontPadding = false
+    }
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+        super.onCreate(savedInstanceState)
+
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+
+        buildUi()
+    }
+
+    private fun buildUi() {
+
+        val root =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setBackgroundColor(bg)
+                setPadding(
+                    20,
+                    24,
+                    20,
+                    20
+                )
+            }
+
+        root.addView(
+            text("History", 28f)
+        )
+
+        root.addView(
+            text(
+                "Your saved media",
+                13f,
+                muted
+            )
+        )
+
+        root.addView(
+            Space(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        1,
+                        18
+                    )
+            }
+        )
+
+        // FILTER STRIP
+
+        val horizontal =
+            HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled =
+                    false
+            }
+
+        val filters =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        val names =
+            listOf(
+                "All",
+                "Instagram",
+                "Pinterest",
+                "X",
+                "Reddit"
+            )
+
+        for (name in names) {
+
+            val chip =
+                TextView(this).apply {
+                    text = name
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setPadding(
+                        18,
+                        11,
+                        18,
+                        11
+                    )
+                    setTextColor(
+                        if (name == "All")
+                            Color.BLACK
+                        else white
+                    )
+
+                    background =
+                        rounded(
+                            if (name == "All")
+                                white
+                            else card,
+                            border,
+                            100f
+                        )
+                }
+
+            val params =
+                LinearLayout.LayoutParams(
+                    -2,
+                    42
+                )
+
+            params.setMargins(
+                0,
+                0,
+                8,
+                0
+            )
+
+            filters.addView(
+                chip,
+                params
+            )
+
+            chip.setOnClickListener {
+                filter = name
+
+                for (j in 0 until filters.childCount) {
+                    val child =
+                        filters.getChildAt(j)
+                            as TextView
+
+                    val selected =
+                        child.text.toString() ==
+                            filter
+
+                    child.setTextColor(
+                        if (selected)
+                            Color.BLACK
+                        else white
+                    )
+
+                    child.background =
+                        rounded(
+                            if (selected)
+                                white
+                            else card,
+                            border,
+                            100f
+                        )
+                }
+
+                render()
+            }
+        }
+
+        horizontal.addView(filters)
+
+        root.addView(
+            horizontal,
+            LinearLayout.LayoutParams(
+                -1,
+                48
+            )
+        )
+
+        root.addView(
+            Space(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        1,
+                        12
+                    )
+            }
+        )
+
+        val scroll =
+            ScrollView(this)
+
+        list =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+            }
+
+        scroll.addView(list)
+
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
+
+        val home =
+            TextView(this).apply {
+                text = "←  HOME"
+                textSize = 13f
+                gravity = Gravity.CENTER
+                setTextColor(white)
+                setPadding(0, 15, 0, 15)
+                background =
+                    rounded(
+                        card,
+                        border,
+                        18f
+                    )
+            }
+
+        root.addView(home)
+
+        home.setOnClickListener {
+            finish()
+        }
+
+        setContentView(root)
+
+        render()
+    }
+
+    private fun render() {
+
+        list.removeAllViews()
+
+        val prefs =
+            getSharedPreferences(
+                "history",
+                Context.MODE_PRIVATE
+            )
+
+        val array =
+            JSONArray(
+                prefs.getString(
+                    "items",
+                    "[]"
+                ) ?: "[]"
+            )
+
+        var shown = 0
+
+        for (
+            i in array.length() - 1 downTo 0
+        ) {
+
+            val item =
+                array.optJSONObject(i)
+                    ?: continue
+
+            val platform =
+                item.optString(
+                    "platform",
+                    "Unknown"
+                )
+
+            if (
+                filter != "All" &&
+                platform != filter
+            ) {
+                continue
+            }
+
+            shown++
+
+            addCard(
+                item,
+                i,
+                platform
+            )
+        }
+
+        if (shown == 0) {
+            val empty =
+                text(
+                    "Nothing here yet",
+                    15f,
+                    muted
+                )
+
+            empty.gravity =
+                Gravity.CENTER
+
+            empty.setPadding(
+                0,
+                70,
+                0,
+                70
+            )
+
+            list.addView(empty)
+        }
+    }
+
+    private fun addCard(
+        item: org.json.JSONObject,
+        index: Int,
+        platform: String
+    ) {
+
+        val uriString =
+            item.optString("uri", "")
+
+        val filename =
+            item.optString(
+                "filename",
+                "Media"
+            )
+
+        val time =
+            item.optString(
+                "time",
+                ""
+            )
+
+        val platformColor =
+            when (platform) {
+                "Instagram" ->
+                    Color.rgb(
+                        230,
+                        70,
+                        125
+                    )
+
+                "Pinterest" ->
+                    Color.rgb(
+                        230,
+                        65,
+                        70
+                    )
+
+                "X" ->
+                    Color.WHITE
+
+                "Reddit" ->
+                    Color.rgb(
+                        255,
+                        105,
+                        45
+                    )
+
+                else ->
+                    Color.GRAY
+            }
+
+        val cardView =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setPadding(
+                    16,
+                    16,
+                    16,
+                    14
+                )
+                background =
+                    rounded(
+                        card,
+                        border,
+                        22f
+                    )
+            }
+
+        val top =
+            LinearLayout(this).apply {
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        val dot =
+            TextView(this).apply {
+                text = "●"
+                textSize = 14f
+                setTextColor(
+                    platformColor
+                )
+            }
+
+        top.addView(
+            dot,
+            LinearLayout.LayoutParams(
+                24,
+                30
+            )
+        )
+
+        val title =
+            text(
+                platform,
+                14f
+            ).apply {
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+
+        top.addView(
+            title,
+            LinearLayout.LayoutParams(
+                0,
+                -2,
+                1f
+            )
+        )
+
+        top.addView(
+            text(
+                time,
+                11f,
+                muted
+            )
+        )
+
+        cardView.addView(top)
+
+        cardView.addView(
+            Space(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        1,
+                        9
+                    )
+            }
+        )
+
+        cardView.addView(
+            text(
+                filename,
+                13f,
+                muted
+            )
+        )
+
+        cardView.addView(
+            Space(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        1,
+                        12
+                    )
+            }
+        )
+
+        val actions =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        fun action(
+            name: String
+        ): TextView =
+            TextView(this).apply {
+                text = name
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setTextColor(white)
+                background =
+                    rounded(
+                        Color.rgb(
+                            28,
+                            28,
+                            30
+                        ),
+                        border,
+                        14f
+                    )
+                setPadding(
+                    13,
+                    9,
+                    13,
+                    9
+                )
+            }
+
+        val open =
+            action("OPEN")
+
+        val share =
+            action("SHARE")
+
+        val delete =
+            action("DELETE")
+
+        actions.addView(
+            open,
+            LinearLayout.LayoutParams(
+                0,
+                40,
+                1f
+            )
+        )
+
+        actions.addView(
+            Space(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        7,
+                        1
+                    )
+            }
+        )
+
+        actions.addView(
+            share,
+            LinearLayout.LayoutParams(
+                0,
+                40,
+                1f
+            )
+        )
+
+        actions.addView(
+            Space(this).apply {
+                layoutParams =
+                    LinearLayout.LayoutParams(
+                        7,
+                        1
+                    )
+            }
+        )
+
+        actions.addView(
+            delete,
+            LinearLayout.LayoutParams(
+                0,
+                40,
+                1f
+            )
+        )
+
+        cardView.addView(actions)
+
+        open.setOnClickListener {
+
+            if (uriString.isNotEmpty()) {
+                try {
+                    startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(uriString)
+                        )
+                    )
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        share.setOnClickListener {
+
+            if (uriString.isNotEmpty()) {
+
+                val intent =
+                    Intent(
+                        Intent.ACTION_SEND
+                    ).apply {
+                        type =
+                            if (
+                                filename.endsWith(
+                                    ".jpg",
+                                    true
+                                ) ||
+                                filename.endsWith(
+                                    ".png",
+                                    true
+                                )
+                            )
+                                "image/*"
+                            else
+                                "video/*"
+
+                        putExtra(
+                            Intent.EXTRA_STREAM,
+                            Uri.parse(uriString)
+                        )
+
+                        addFlags(
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    }
+
+                startActivity(
+                    Intent.createChooser(
+                        intent,
+                        "Share media"
+                    )
+                )
+            }
+        }
+
+        delete.setOnClickListener {
+
+            val prefs =
+                getSharedPreferences(
+                    "history",
+                    Context.MODE_PRIVATE
+                )
+
+            val array =
+                JSONArray(
+                    prefs.getString(
+                        "items",
+                        "[]"
+                    ) ?: "[]"
+                )
+
+            val newArray =
+                JSONArray()
+
+            for (i in 0 until array.length()) {
+                if (i != index) {
+                    newArray.put(
+                        array.get(i)
+                    )
+                }
+            }
+
+            prefs.edit()
+                .putString(
+                    "items",
+                    newArray.toString()
+                )
+                .apply()
+
+            render()
+        }
+
+        list.addView(
+            cardView,
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            ).apply {
+                setMargins(
+                    0,
+                    0,
+                    0,
+                    10
+                )
+            }
+        )
+
+        // subtle entrance animation
+        val animation =
+            AlphaAnimation(
+                0f,
+                1f
+            ).apply {
+                duration = 180
+            }
+
+        cardView.startAnimation(animation)
+    }
+}
+
+===== app/src/main/java/com/mediasaver/app/ProfileActivity.kt =====
+package com.mediasaver.app
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
+import android.view.Gravity
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONArray
+
+class ProfileActivity : AppCompatActivity() {
+
+    private val bg = Color.rgb(10, 10, 11)
+    private val card = Color.rgb(20, 20, 22)
+    private val border = Color.rgb(52, 52, 56)
+    private val white = Color.rgb(245, 245, 245)
+    private val muted = Color.rgb(145, 145, 150)
+
+    private fun rounded(
+        color: Int,
+        stroke: Int = color,
+        radius: Float = 24f
+    ) = GradientDrawable().apply {
+        setColor(color)
+        setStroke(1, stroke)
+        cornerRadius = radius
+    }
+
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int = white
+    ) = TextView(this).apply {
+        text = value
+        textSize = size
+        setTextColor(color)
+        includeFontPadding = false
+    }
+
+    private fun gap(h: Int) =
+        Space(this).apply {
+            layoutParams =
+                LinearLayout.LayoutParams(1, h)
+        }
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+        super.onCreate(savedInstanceState)
+
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+
+        buildUi()
+    }
+
+    private fun buildUi() {
+
+        val prefs =
+            getSharedPreferences(
+                "history",
+                Context.MODE_PRIVATE
+            )
+
+        val array =
+            JSONArray(
+                prefs.getString(
+                    "items",
+                    "[]"
+                ) ?: "[]"
+            )
+
+        var instagram = 0
+        var pinterest = 0
+        var x = 0
+        var reddit = 0
+
+        for (i in 0 until array.length()) {
+            when (
+                array.optJSONObject(i)
+                    ?.optString("platform")
+            ) {
+                "Instagram" -> instagram++
+                "Pinterest" -> pinterest++
+                "X" -> x++
+                "Reddit" -> reddit++
+            }
+        }
+
+        val total =
+            instagram + pinterest + x + reddit
+
+        val root =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setBackgroundColor(bg)
+            }
+
+        val scroll =
+            ScrollView(this).apply {
+                isFillViewport = true
+            }
+
+        val content =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setPadding(
+                    20,
+                    24,
+                    20,
+                    105
+                )
+            }
+
+        content.addView(
+            text("Profile", 28f)
+        )
+
+        content.addView(gap(22))
+
+        // PROFILE CARD
+
+        val profileCard =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(
+                    18,
+                    24,
+                    18,
+                    24
+                )
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        val avatar =
+            TextView(this).apply {
+                text = "●"
+                textSize = 25f
+                gravity = Gravity.CENTER
+                setTextColor(
+                    Color.rgb(
+                        210,
+                        210,
+                        214
+                    )
+                )
+                background = rounded(
+                    Color.rgb(
+                        38,
+                        38,
+                        41
+                    ),
+                    Color.rgb(
+                        70,
+                        70,
+                        74
+                    ),
+                    100f
+                )
+            }
+
+        profileCard.addView(
+            avatar,
+            LinearLayout.LayoutParams(
+                62,
+                62
+            )
+        )
+
+        profileCard.addView(gap(13))
+
+        profileCard.addView(
+            text(
+                "Youwank Raj",
+                22f
+            ).apply {
+                gravity = Gravity.CENTER
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        profileCard.addView(gap(4))
+
+        profileCard.addView(
+            text(
+                "Media Saver",
+                13f,
+                muted
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+        )
+
+        content.addView(profileCard)
+
+        content.addView(gap(14))
+
+        // TOTAL
+
+        val totalCard =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(
+                    18,
+                    20,
+                    18,
+                    20
+                )
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        totalCard.addView(
+            text(
+                total.toString(),
+                38f
+            ).apply {
+                gravity = Gravity.CENTER
+                typeface =
+                    Typeface.DEFAULT_BOLD
+            }
+        )
+
+        totalCard.addView(gap(4))
+
+        totalCard.addView(
+            text(
+                "TOTAL DOWNLOADS",
+                11f,
+                muted
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+        )
+
+        content.addView(totalCard)
+
+        content.addView(gap(14))
+
+        // CHART
+
+        val chartCard =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setPadding(
+                    18,
+                    18,
+                    18,
+                    18
+                )
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        chartCard.addView(
+            text(
+                "Download breakdown",
+                17f
+            )
+        )
+
+        chartCard.addView(gap(12))
+
+        chartCard.addView(
+            DownloadPieView(
+                this,
+                instagram,
+                pinterest,
+                x,
+                reddit
+            ),
+            LinearLayout.LayoutParams(
+                -1,
+                220
+            )
+        )
+
+        chartCard.addView(gap(10))
+
+        chartCard.addView(
+            text(
+                "Instagram  $instagram   •   Pinterest  $pinterest",
+                12f,
+                Color.rgb(
+                    235,
+                    105,
+                    145
+                )
+            )
+        )
+
+        chartCard.addView(gap(6))
+
+        chartCard.addView(
+            text(
+                "X  $x   •   Reddit  $reddit",
+                12f,
+                muted
+            )
+        )
+
+        content.addView(chartCard)
+
+        content.addView(gap(14))
+
+        val history =
+            TextView(this).apply {
+                text = "VIEW HISTORY"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(Color.BLACK)
+                typeface =
+                    Typeface.DEFAULT_BOLD
+                background = rounded(
+                    white,
+                    white,
+                    18f
+                )
+                setPadding(
+                    0,
+                    15,
+                    0,
+                    15
+                )
+            }
+
+        content.addView(history)
+
+        history.setOnClickListener {
+            startActivity(
+                Intent(
+                    this,
+                    HistoryActivity::class.java
+                )
+            )
+        }
+
+        scroll.addView(content)
+
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
+
+        // NAV
+
+        val nav =
+            LinearLayout(this).apply {
+                gravity =
+                    Gravity.CENTER_VERTICAL
+                setPadding(
+                    20,
+                    6,
+                    20,
+                    6
+                )
+                setBackgroundColor(
+                    Color.rgb(
+                        15,
+                        15,
+                        16
+                    )
+                )
+            }
+
+        val home =
+            text("⌂", 29f, muted).apply {
+                gravity = Gravity.CENTER
+            }
+
+        val profile =
+            text("●", 20f, white).apply {
+                gravity = Gravity.CENTER
+            }
+
+        nav.addView(
+            home,
+            LinearLayout.LayoutParams(
+                0,
+                58,
+                1f
+            )
+        )
+
+        nav.addView(
+            profile,
+            LinearLayout.LayoutParams(
+                0,
+                58,
+                1f
+            )
+        )
+
+        root.addView(nav)
+
+        home.setOnClickListener {
+            finish()
+        }
+
+        setContentView(root)
+    }
+
+    class DownloadPieView(
+        context: Context,
+        private val instagram: Int,
+        private val pinterest: Int,
+        private val x: Int,
+        private val reddit: Int
+    ) : androidx.appcompat.widget.AppCompatTextView(context) {
+
+        private val paint =
+            Paint(Paint.ANTI_ALIAS_FLAG)
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+
+            val total =
+                instagram +
+                    pinterest +
+                    x +
+                    reddit
+
+            if (total == 0) {
+                paint.color =
+                    Color.rgb(45, 45, 48)
+                paint.style =
+                    Paint.Style.STROKE
+                paint.strokeWidth = 26f
+
+                canvas.drawCircle(
+                    width / 2f,
+                    height / 2f,
+                    65f,
+                    paint
+                )
+
+                paint.style =
+                    Paint.Style.FILL
+                paint.textSize = 13f
+                paint.color = Color.GRAY
+                paint.textAlign =
+                    Paint.Align.CENTER
+
+                canvas.drawText(
+                    "No downloads",
+                    width / 2f,
+                    height / 2f + 5f,
+                    paint
+                )
+
+                return
+            }
+
+            val rect =
+                RectF(
+                    width / 2f - 75f,
+                    height / 2f - 75f,
+                    width / 2f + 75f,
+                    height / 2f + 75f
+                )
+
+            paint.style =
+                Paint.Style.STROKE
+            paint.strokeWidth = 28f
+
+            var start = -90f
+
+            val values =
+                listOf(
+                    instagram,
+                    pinterest,
+                    x,
+                    reddit
+                )
+
+            val colors =
+                listOf(
+                    Color.rgb(
+                        230,
+                        70,
+                        125
+                    ),
+                    Color.rgb(
+                        230,
+                        70,
+                        65
+                    ),
+                    Color.WHITE,
+                    Color.rgb(
+                        255,
+                        110,
+                        45
+                    )
+                )
+
+            for (i in values.indices) {
+
+                if (values[i] <= 0) continue
+
+                val sweep =
+                    values[i]
+                        .toFloat() /
+                        total
+                        .toFloat() *
+                        360f
+
+                paint.color =
+                    colors[i]
+
+                canvas.drawArc(
+                    rect,
+                    start,
+                    sweep,
+                    false,
+                    paint
+                )
+
+                start += sweep
+            }
+
+            paint.style =
+                Paint.Style.FILL
+            paint.color = white
+            paint.textSize = 30f
+            paint.textAlign =
+                Paint.Align.CENTER
+
+            canvas.drawText(
+                total.toString(),
+                width / 2f,
+                height / 2f + 10f,
+                paint
+            )
+
+            paint.textSize = 10f
+            paint.color = Color.GRAY
+
+            canvas.drawText(
+                "downloads",
+                width / 2f,
+                height / 2f + 28f,
+                paint
+            )
+        }
+    }
+}
+
+===== app/src/main/java/com/mediasaver/app/MainActivity.kt =====
+package com.mediasaver.app
+
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
+import android.view.Gravity
+import android.view.View
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+
+class MainActivity : AppCompatActivity() {
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.MINUTES)
+        .readTimeout(5, TimeUnit.MINUTES)
+        .writeTimeout(5, TimeUnit.MINUTES)
+        .build()
+
+    private val backendUrl = "https://media-saver-app-cu8d.onrender.com"
+
+    private val bg = Color.rgb(10, 10, 11)
+    private val card = Color.rgb(20, 20, 22)
+    private val field = Color.rgb(28, 28, 31)
+    private val border = Color.rgb(52, 52, 56)
+    private val white = Color.rgb(245, 245, 245)
+    private val muted = Color.rgb(145, 145, 150)
+
+    private fun rounded(
+        color: Int,
+        stroke: Int = color,
+        radius: Float = 22f
+    ) = GradientDrawable().apply {
+        setColor(color)
+        setStroke(1, stroke)
+        cornerRadius = radius
+    }
+
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int = white
+    ) = TextView(this).apply {
+        this.text = value
+        textSize = size
+        settextColor(color)
+        includeFontPadding = false
+    }
+
+    private fun gap(height: Int) =
+        Space(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, height)
+        }
+
+    private fun platformFor(url: String): String {
+        return when {
+            url.contains("instagram.com", true) ||
+            url.contains("instagr.am", true) -> "Instagram"
+
+            url.contains("pinterest.", true) ||
+            url.contains("pin.it", true) -> "Pinterest"
+
+            url.contains("twitter.com", true) ||
+            url.contains("x.com", true) -> "X"
+
+            url.contains("reddit.com", true) ||
+            url.contains("redd.it", true) -> "Reddit"
+
+            else -> ""
+        }
+    }
+
+    private fun saveToGallery(
+        bytes: ByteArray,
+        filename: String,
+        isImage: Boolean
+    ): Uri? {
+        val values = ContentValues()
+
+        return if (isImage) {
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, filename)
+            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            values.put(
+                MediaStore.Images.Media.RELATIVE_PATH,
+                Environment.DIRECTORY_PICTURES + "/MediaSaver"
+            )
+
+            val uri = contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                values
+            )
+
+            if (uri != null) {
+                contentResolver.openOutputStream(uri)?.use {
+                    it.write(bytes)
+                }
+            }
+
+            uri
+        } else {
+            values.put(MediaStore.Video.Media.DISPLAY_NAME, filename)
+            values.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            values.put(
+                MediaStore.Video.Media.RELATIVE_PATH,
+                Environment.DIRECTORY_MOVIES + "/MediaSaver"
+            )
+
+            val uri = contentResolver.insert(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                values
+            )
+
+            if (uri != null) {
+                contentResolver.openOutputStream(uri)?.use {
+                    it.write(bytes)
+                }
+            }
+
+            uri
+        }
+    }
+
+    private fun addToHistory(
+        platform: String,
+        filename: String,
+        uri: Uri?
+    ) {
+        val prefs = getSharedPreferences("history", Context.MODE_PRIVATE)
+        val array = JSONArray(
+            prefs.getString("items", "[]") ?: "[]"
+        )
+
+        val item = JSONObject().apply {
+            put("platform", platform)
+            put("filename", filename)
+            put("uri", uri?.toString() ?: "")
+            put(
+                "time",
+                SimpleDateFormat(
+                    "dd MMM, HH:mm",
+                    Locale.getDefault()
+                ).format(Date())
+            )
+        }
+
+        array.put(item)
+
+        prefs.edit()
+            .putString("items", array.toString())
+            .apply()
+    }
+
+    private fun downloadOne(
+        url: String,
+        callback: (Boolean, String) -> Unit
+    ) {
+        val platform = platformFor(url)
+
+        if (platform.isEmpty()) {
+            runOnUiThread {
+                callback(
+                    false,
+                    "Only Instagram, Pinterest, X and Reddit are supported"
+                )
+            }
+            return
+        }
+
+        val json = JSONObject().apply {
+            put("url", url)
+        }
+
+        val body = json.toString()
+            .toRequestBody(
+                "application/json".toMediaType()
+            )
+
+        val request = Request.Builder()
+            .url("$backendUrl/download")
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(
+            object : Callback {
+
+                override fun onFailure(
+                    call: Call,
+                    e: IOException
+                ) {
+                    runOnUiThread {
+                        callback(
+                            false,
+                            e.message ?: "Network error"
+                        )
+                    }
+                }
+
+                override fun onResponse(
+                    call: Call,
+                    response: Response
+                ) {
+                    val raw =
+                        response.body?.string() ?: "{}"
+
+                    val obj = try {
+                        JSONObject(raw)
+                    } catch (_: Exception) {
+                        JSONObject()
+                    }
+
+                    val filename =
+                        obj.optString("filename", "")
+
+                    if (filename.isEmpty()) {
+                        runOnUiThread {
+                            callback(
+                                false,
+                                obj.optString(
+                                    "error",
+                                    "Server error"
+                                )
+                            )
+                        }
+                        return
+                    }
+
+                    val fileRequest =
+                        Request.Builder()
+                            .url("$backendUrl/file/$filename")
+                            .build()
+
+                    client.newCall(fileRequest).enqueue(
+                        object : Callback {
+
+                            override fun onFailure(
+                                call: Call,
+                                e: IOException
+                            ) {
+                                runOnUiThread {
+                                    callback(
+                                        false,
+                                        e.message
+                                            ?: "File fetch failed"
+                                    )
+                                }
+                            }
+
+                            override fun onResponse(
+                                call: Call,
+                                response: Response
+                            ) {
+                                val bytes =
+                                    response.body?.bytes()
+
+                                if (bytes == null) {
+                                    runOnUiThread {
+                                        callback(
+                                            false,
+                                            "Empty file"
+                                        )
+                                    }
+                                    return
+                                }
+
+                                val uri = saveToGallery(
+                                    bytes,
+                                    filename,
+                                    obj.optString(
+                                        "type",
+                                        "video"
+                                    ) == "image"
+                                )
+
+                                addToHistory(
+                                    platform,
+                                    filename,
+                                    uri
+                                )
+
+                                runOnUiThread {
+                                    callback(
+                                        true,
+                                        platform
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+        super.onCreate(savedInstanceState)
+
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
+
+        buildUi()
+    }
+
+    private fun buildUi() {
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(bg)
+        }
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+        }
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(20, 24, 20, 105)
+        }
+
+        // HEADER
+
+        content.addView(
+            text("Media Saver", 28f)
+        )
+
+        content.addView(gap(5))
+
+        content.addView(
+            text("by Youwank Raj", 13f, muted)
+        )
+
+        content.addView(gap(28))
+
+        // MAIN DOWNLOAD CARD
+
+        val downloadCard =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(18, 18, 18, 18)
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        downloadCard.addView(
+            text("SAVE MEDIA", 11f, muted)
+        )
+
+        downloadCard.addView(gap(11))
+
+        val input =
+            EditText(this).apply {
+                hint = "Paste a link"
+                hinttextColor =
+                    Color.rgb(100, 100, 105)
+                settextColor(white)
+                textSize = 17f
+                setSingleLine(true)
+                setPadding(16, 0, 16, 0)
+                background = rounded(
+                    field,
+                    border,
+                    17f
+                )
+            }
+
+        if (
+            intent?.action == Intent.ACTION_SEND &&
+            intent.type == "text/plain"
+        ) {
+            input.setText(
+                intent.getStringExtra(
+                    Intent.EXTRA_TEXT
+                ) ?: ""
+            )
+        }
+
+        downloadCard.addView(
+            input,
+            LinearLayout.LayoutParams(
+                -1,
+                58
+            )
+        )
+
+        downloadCard.addView(gap(11))
+
+        val status =
+            text("Ready", 13f, muted)
+
+        downloadCard.addView(status)
+
+        downloadCard.addView(gap(11))
+
+        val download =
+            TextView(this).apply {
+                text = "DOWNLOAD"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                settextColor(Color.BLACK)
+                typeface =
+                    Typeface.DEFAULT_BOLD
+                background = rounded(
+                    white,
+                    white,
+                    17f
+                )
+                setPadding(0, 15, 0, 15)
+            }
+
+        downloadCard.addView(download)
+
+        content.addView(downloadCard)
+
+        // BULK
+
+        content.addView(gap(14))
+
+        val bulkCard =
+            LinearLayout(this).apply {
+                orientation =
+                    LinearLayout.VERTICAL
+                setPadding(18, 18, 18, 18)
+                background = rounded(
+                    card,
+                    border,
+                    26f
+                )
+            }
+
+        val bulkTitle =
+            LinearLayout(this).apply {
+                gravity =
+                    Gravity.CENTER_VERTICAL
+            }
+
+        bulkTitle.addView(
+            text("Bulk download", 18f),
+            LinearLayout.LayoutParams(
+                0,
+                -2,
+                1f
+            )
+        )
+
+        val bulkToggle =
+            text("＋", 27f, white).apply {
+                gravity = Gravity.CENTER
+            }
+
+        bulkTitle.addView(
+            bulkToggle,
+            LinearLayout.LayoutParams(
+                42,
+                42
+            )
+        )
+
+        bulkCard.addView(bulkTitle)
+
+        val bulkInput =
+            EditText(this).apply {
+                hint = "One link per line"
+                hinttextColor =
+                    Color.rgb(100, 100, 105)
+                settextColor(white)
+                textSize = 15f
+                gravity = Gravity.TOP
+                minLines = 4
+                setPadding(16, 14, 16, 14)
+                background = rounded(
+                    field,
+                    border,
+                    17f
+                )
+                visibility = View.GONE
+            }
+
+        bulkCard.addView(gap(10))
+        bulkCard.addView(bulkInput)
+
+        val queue =
+            TextView(this).apply {
+                text = "START QUEUE"
+                textSize = 14f
+                gravity = Gravity.CENTER
+                settextColor(Color.BLACK)
+                typeface =
+                    Typeface.DEFAULT_BOLD
+                background = rounded(
+                    white,
+                    white,
+                    17f
+                )
+                setPadding(0, 15, 0, 15)
+                visibility = View.GONE
+            }
+
+        bulkCard.addView(gap(10))
+        bulkCard.addView(queue)
+
+        content.addView(bulkCard)
+
+        bulkToggle.setOnClickListener {
+            val open =
+                bulkInput.visibility != View.VISIBLE
+
+            bulkInput.visibility =
+                if (open) View.VISIBLE
+                else View.GONE
+
+            queue.visibility =
+                if (open) View.VISIBLE
+                else View.GONE
+
+            bulkToggle.text =
+                if (open) "−" else "＋"
+        }
+
+        content.addView(gap(24))
+
+        content.addView(
+            text("SUPPORTED", 11f, muted)
+        )
+
+        content.addView(gap(7))
+
+        content.addView(
+            text(
+                "Instagram  •  Pinterest  •  X  •  Reddit",
+                13f,
+                muted
+            )
+        )
+
+        scroll.addView(content)
+
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
+
+        // BOTTOM NAV
+
+        val nav =
+            LinearLayout(this).apply {
+                gravity =
+                    Gravity.CENTER_VERTICAL
+                setPadding(20, 6, 20, 6)
+                setBackgroundColor(
+                    Color.rgb(15, 15, 16)
+                )
+            }
+
+        val home =
+            text("⌂", 29f, white).apply {
+                gravity = Gravity.CENTER
+            }
+
+        val profile =
+            text("◯", 25f, muted).apply {
+                gravity = Gravity.CENTER
+            }
+
+        nav.addView(
+            home,
+            LinearLayout.LayoutParams(
+                0,
+                58,
+                1f
+            )
+        )
+
+        nav.addView(
+            profile,
+            LinearLayout.LayoutParams(
+                0,
+                58,
+                1f
+            )
+        )
+
+        root.addView(nav)
+
+        home.setOnClickListener {
+            scroll.smoothScrollTo(0, 0)
+        }
+
+        profile.setOnClickListener {
+            startActivity(
+                Intent(
+                    this,
+                    ProfileActivity::class.java
+                )
+            )
+        }
+
+        setContentView(root)
+
+        // DOWNLOAD
+
+        download.setOnClickListener {
+
+            val url =
+                input.text.toString().trim()
+
+            if (url.isEmpty()) {
+                status.text =
+                    "Paste a link first"
+                return@setOnClickListener
+            }
+
+            download.isEnabled = false
+            status.text = "Downloading…"
+
+            downloadOne(url) { success, message ->
+
+                status.text =
+                    if (success)
+                        "Saved • $message"
+                    else
+                        "Failed • $message"
+
+                download.isEnabled = true
+            }
+        }
+
+        // BULK QUEUE
+
+        queue.setOnClickListener {
+
+            val urls =
+                bulkInput.text
+                    .toString()
+                    .lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+
+            if (urls.isEmpty()) {
+                return@setOnClickListener
+            }
+
+            queue.isEnabled = false
+
+            var index = 0
+
+            fun next() {
+
+                if (index >= urls.size) {
+                    queue.text = "DONE"
+                    queue.isEnabled = true
+                    return
+                }
+
+                queue.text =
+                    "${index + 1}/${urls.size}"
+
+                downloadOne(urls[index]) {
+                        _, _ ->
+
+                    index++
+                    next()
+                }
+            }
+
+            next()
+        }
+    }
+}
